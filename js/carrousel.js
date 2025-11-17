@@ -282,3 +282,340 @@
     initCarousels();
   }
 })();
+
+/*
+  Lightweight modern carousel initializer.
+  Initializes every .portrait-carousel on the page independently,
+  finds prev/next inside each container, builds/links dots, recenters active slide.
+*/
+(function () {
+  function Carousel(container) {
+    this.container = container;
+    this.slidesContainer = container.querySelector('.slides-container') || container;
+    this.track = container.querySelector('.slides-track');
+    this.slides = Array.from(container.querySelectorAll('.slide'));
+    this.prevBtn = container.querySelector('.nav-button.prev');
+    this.nextBtn = container.querySelector('.nav-button.next');
+    this.dotsWrap = container.querySelector('.dots');
+    this.current = 0;
+    this.gap = parseFloat(getComputedStyle(this.track).gap) || 0;
+    this.init();
+  }
+
+  Carousel.prototype.init = function () {
+    if (!this.track || this.slides.length === 0) return;
+    this.track.style.willChange = 'transform';
+    this.track.style.transition = 'transform 0.5s cubic-bezier(0.4,0,0.2,1)';
+
+    // build dots if missing or count mismatch
+    if (!this.dotsWrap) {
+      this.dotsWrap = document.createElement('div');
+      this.dotsWrap.className = 'dots';
+      this.container.appendChild(this.dotsWrap);
+    }
+    this.dotsWrap.innerHTML = '';
+    this.slides.forEach((_, i) => {
+      const d = document.createElement('button');
+      d.className = 'dot' + (i === 0 ? ' active' : '');
+      d.addEventListener('click', () => this.goTo(i));
+      this.dotsWrap.appendChild(d);
+    });
+
+    if (this.prevBtn) this.prevBtn.addEventListener('click', () => this.prev());
+    if (this.nextBtn) this.nextBtn.addEventListener('click', () => this.next());
+
+    // make sure slides have consistent height (CSS handles width via vars)
+    this.syncSizes();
+    window.addEventListener('resize', this.debounce(() => { this.syncSizes(); this.goTo(this.current); }, 120));
+
+    // initial center
+    this.goTo(0);
+
+    // allow left/right keys when focused
+    this.container.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') this.prev();
+      if (e.key === 'ArrowRight') this.next();
+    });
+  };
+
+  Carousel.prototype.syncSizes = function () {
+    // ensure slides have computed sizes; this helps centering calculation
+    this.slideRects = this.slides.map(s => s.getBoundingClientRect());
+    this.trackRect = this.track.getBoundingClientRect();
+    this.viewRect = this.slidesContainer.getBoundingClientRect();
+  };
+
+  Carousel.prototype.goTo = function (index) {
+    if (index < 0) index = 0;
+    if (index >= this.slides.length) index = this.slides.length - 1;
+    this.current = index;
+
+    // refresh rects
+    this.syncSizes();
+
+    const slideRect = this.slides[index].getBoundingClientRect();
+    const trackRect = this.track.getBoundingClientRect();
+    const viewRect = this.slidesContainer.getBoundingClientRect();
+
+    // compute target translate so selected slide is centered in the .slides-container
+    const slideCenter = (slideRect.left - trackRect.left) + slideRect.width / 2;
+    const targetX = (viewRect.width / 2) - slideCenter;
+
+    // clamp between min and max translate to prevent empty space at edges
+    const maxTranslate = 0;
+    const minTranslate = Math.min(viewRect.width - trackRect.width, 0);
+    const clamped = Math.max(Math.min(targetX, maxTranslate), minTranslate);
+
+    this.track.style.transform = `translateX(${clamped}px)`;
+
+    // update active classes
+    this.slides.forEach((s, i) => s.classList.toggle('active', i === index));
+    const dots = Array.from(this.dotsWrap.children);
+    dots.forEach((d, i) => d.classList.toggle('active', i === index));
+  };
+
+  Carousel.prototype.prev = function () { this.goTo(this.current - 1); };
+  Carousel.prototype.next = function () { this.goTo(this.current + 1); };
+
+  // small debounce helper
+  Carousel.prototype.debounce = function (fn, wait) {
+    let t;
+    return function () { clearTimeout(t); t = setTimeout(fn, wait); };
+  };
+
+  // init all carousels on DOM ready
+  function initAll() {
+    const carousels = document.querySelectorAll('.portrait-carousel');
+    carousels.forEach(c => {
+      // ensure container is focusable for keyboard nav
+      if (!c.hasAttribute('tabindex')) c.setAttribute('tabindex', '0');
+      new Carousel(c);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAll);
+  } else {
+    initAll();
+  }
+})();
+
+// ==================== GRID CAROUSEL - 3 images visibles ====================//
+(function() {
+    'use strict';
+    
+    class GridCarousel {
+        constructor(containerSelector) {
+            this.container = document.querySelector(containerSelector);
+            if (!this.container) return;
+            
+            this.track = this.container.querySelector('.carousel-track');
+            this.slides = Array.from(this.container.querySelectorAll('.carousel-slide'));
+            this.prevBtn = this.container.querySelector('.carousel-nav.prev');
+            this.nextBtn = this.container.querySelector('.carousel-nav.next');
+            this.dotsContainer = this.container.querySelector('.carousel-dots');
+            
+            this.currentIndex = 1; // Commencer avec la slide du milieu active
+            this.autoScrollInterval = null;
+            this.autoScrollDelay = 4000; // 4 secondes
+            this.visibleSlides = 3;
+            
+            this.init();
+        }
+        
+        init() {
+            if (this.slides.length === 0) return;
+            
+            // Créer les dots
+            this.createDots();
+            
+            // Event listeners
+            if (this.prevBtn) this.prevBtn.addEventListener('click', () => this.prev());
+            if (this.nextBtn) this.nextBtn.addEventListener('click', () => this.next());
+            
+            // Keyboard navigation
+            this.container.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft') this.prev();
+                if (e.key === 'ArrowRight') this.next();
+            });
+            
+            // Pause on hover
+            this.container.addEventListener('mouseenter', () => this.pauseAutoScroll());
+            this.container.addEventListener('mouseleave', () => this.startAutoScroll());
+            
+            // Touch swipe support
+            this.addTouchSupport();
+            
+            // Responsive handler
+            window.addEventListener('resize', () => this.handleResize());
+            
+            // Initial setup
+            setTimeout(() => {
+                this.handleResize();
+                this.updateCarousel();
+                this.startAutoScroll();
+            }, 100);
+        }
+        
+        handleResize() {
+            const width = window.innerWidth;
+            if (width < 600) {
+                this.visibleSlides = 1;
+            } else if (width < 1024) {
+                this.visibleSlides = 2;
+            } else {
+                this.visibleSlides = 3;
+            }
+        }
+        
+        createDots() {
+            if (!this.dotsContainer) return;
+            
+            this.dotsContainer.innerHTML = '';
+            this.slides.forEach((_, index) => {
+                const dot = document.createElement('button');
+                dot.className = 'carousel-dot';
+                dot.setAttribute('aria-label', `Aller à la diapositive ${index + 1}`);
+                
+                dot.addEventListener('click', () => {
+                    this.goToSlide(index);
+                    this.resetAutoScroll();
+                });
+                
+                this.dotsContainer.appendChild(dot);
+            });
+            
+            this.updateDots();
+        }
+        
+        updateDots() {
+            if (!this.dotsContainer) return;
+            
+            const dots = this.dotsContainer.querySelectorAll('.carousel-dot');
+            dots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === this.currentIndex);
+            });
+        }
+        
+        goToSlide(index) {
+            const totalSlides = this.slides.length;
+            
+            // Gestion circulaire
+            if (index < 0) {
+                this.currentIndex = totalSlides - 1;
+            } else if (index >= totalSlides) {
+                this.currentIndex = 0;
+            } else {
+                this.currentIndex = index;
+            }
+            
+            this.updateCarousel();
+        }
+        
+        updateCarousel() {
+            const totalSlides = this.slides.length;
+            
+            // Calculer le décalage pour centrer la slide active
+            let offset;
+            
+            if (this.visibleSlides === 1) {
+                // En mode mobile, centrer complètement la slide active
+                offset = -this.currentIndex * 100;
+            } else if (this.visibleSlides === 2) {
+                // En mode tablette, ajuster pour avoir la slide active à gauche ou centrée
+                offset = -(this.currentIndex * 50) + 25;
+            } else {
+                // En mode desktop, centrer la slide active (au milieu des 3)
+                offset = -(this.currentIndex * (100 / 3)) + (100 / 3);
+            }
+            
+            this.track.style.transform = `translateX(${offset}%)`;
+            
+            // Mettre à jour les classes actives
+            this.slides.forEach((slide, index) => {
+                slide.classList.toggle('active', index === this.currentIndex);
+            });
+            
+            // Mettre à jour les dots
+            this.updateDots();
+        }
+        
+        prev() {
+            this.goToSlide(this.currentIndex - 1);
+            this.resetAutoScroll();
+        }
+        
+        next() {
+            this.goToSlide(this.currentIndex + 1);
+            this.resetAutoScroll();
+        }
+        
+        startAutoScroll() {
+            if (this.autoScrollInterval) return;
+            
+            this.autoScrollInterval = setInterval(() => {
+                this.next();
+            }, this.autoScrollDelay);
+        }
+        
+        pauseAutoScroll() {
+            if (this.autoScrollInterval) {
+                clearInterval(this.autoScrollInterval);
+                this.autoScrollInterval = null;
+            }
+        }
+        
+        resetAutoScroll() {
+            this.pauseAutoScroll();
+            this.startAutoScroll();
+        }
+        
+        addTouchSupport() {
+            let startX = 0;
+            let endX = 0;
+            
+            this.container.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+            });
+            
+            this.container.addEventListener('touchmove', (e) => {
+                endX = e.touches[0].clientX;
+            });
+            
+            this.container.addEventListener('touchend', () => {
+                const diff = startX - endX;
+                
+                if (Math.abs(diff) > 50) {
+                    if (diff > 0) {
+                        this.next();
+                    } else {
+                        this.prev();
+                    }
+                }
+            });
+        }
+    }
+    
+    // Fonction pour ouvrir dans une nouvelle fenêtre
+    window.openCarouselItem = function(url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+    };
+    
+    // Initialiser tous les carrousels avec la classe .grid-carousel
+    function initCarousels() {
+        const carousels = document.querySelectorAll('.grid-carousel');
+        carousels.forEach((carousel, index) => {
+            // Ajouter un ID unique si nécessaire
+            if (!carousel.id) {
+                carousel.id = `grid-carousel-${index}`;
+            }
+            new GridCarousel(`#${carousel.id}`);
+        });
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCarousels);
+    } else {
+        initCarousels();
+    }
+})();

@@ -343,21 +343,23 @@ header p {
 .tooltip {
     position: relative;
     display: inline-block;
-    border-bottom: 1px dotted black;
+    border-bottom: 1px dotted white;
     cursor: pointer;
 }
 
 .tooltiptext {
     visibility: hidden;
-    width: 130px;
+    width:16rem;
     bottom: 100%;
     left: 50%;
+    right: 50%;
     margin-left: -65px;
-    background-color: var(--pantone-293);
-    color: #fff;
+    background-color: white;
+    color: #000000;
     text-align: center;
+    border: #000000 1px solid;
     border-radius: 6px;
-    padding: 5px 0;
+    padding: 0.1rem;
     position: absolute;
     z-index: 1;
 }
@@ -405,7 +407,6 @@ header p {
 }
 
 .info-box h3 {
-    font-size: 1.5rem;
     margin-bottom: 1rem;
     color: var(--white);
 }
@@ -748,9 +749,24 @@ iframe {
 }
 
 .pdf-grid iframe {
-    width: 300px !important;
-    height: 420px !important;
+    height: 35.6rem!important;
     border-radius: 8px;
+    padding: 1rem;
+    .pdf-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.poster{
+    width: 30rem; 
+    height: 45rem; 
+    margin: 0 auto
+}
+
+@media (max-width: 600px) { 
+    .poster { 
+        width: 100%; 
+        height: 35.5rem;}
     .pdf-grid {
         grid-template-columns: 1fr;
     }
