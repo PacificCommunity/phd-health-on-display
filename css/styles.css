@@ -855,3 +855,24 @@ iframe {
         font-size: 0.95rem;
     }
 }
+
+/* Images info-box */
+.image_info {
+    color: var(--white);
+}
+
+.image_info img {
+    width: 45rem;
+    height: auto;
+    border-radius: 15px;
+    margin-right: 1rem;
+}
+
+@media screen and (max-width: 900px) {
+    .image_info img {
+        width: 25rem;
+        margin: 0 auto 1rem auto;
+        display: block;
+    }
+    
+}
