@@ -761,7 +761,7 @@ html, body, div, span, applet, object, h1, h2, h3, h4, h5, h6, p, blockquote, pr
     display: block;
     width: 20px;
     height: 20px;
-    background: #F5F5F5;
+    background: #ffffff;
 }
 
 .tline.corner-tr:after {
@@ -1385,4 +1385,5 @@ html {
 
 .bulletin a.active {
     color: #00AEC7;
+
 }
